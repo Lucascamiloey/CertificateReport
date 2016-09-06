@@ -3,17 +3,34 @@
 ## Changelog:
 ##
 
-# V 0.5
-# Agregar check de ips vivas. 
-# log de error marca que pcs estan apagadas.
-# ahora funciona de verdad.
+# V 0.60
+# Log de error en un mismo archivo por corrida
+# Agregado el chequeo verbose con show-progressbar
+# Ahora solo trae columnas relevantes
 #
+
+
+# Agregando funciones
+function show-progressbar([int]$actual,[int]$completo, $estado, $actividad)
+{
+	$porcentaje=($actual/$completo)*100
+	if (!$estado){
+		$estado="Buscando datos $actual de $completo"
+	}
+	if (!$actividad){
+		$actividad="Obteniendo Resultados"
+	}
+	Write-Progress -Activity $actividad -status $estado -percentComplete $porcentaje
+}
+
 
 
 
 ## Inicializar los arrays
 $serverlist=@()
 $certlist=@()
+$numeroactual=0
+$fecha=get-date -Format 'ddMMyy-hhmm'
 
 ## Trae la lista de servers que tengan "server" en el campo operatingSystem 
 ## Con esto filtramos los clusters PERO incluimos los nodos.
@@ -21,13 +38,19 @@ $Serverlist=(dsquery * -filter "(objectCategory=Computer)" -attr name operatingS
 
 ## Exporta la lista a un csv para que se pueda ejecutar el proceso de recoleccion de certs
 $serverlist | export-csv -notypeinformation C:\temp\certs\servers.csv
-
+$total=$serverlist.count
 
 ## Proceso para traer los certs 
 
 foreach ($server in $serverlist){
-
+	#sumando iteracion
+	$numeroactual=$numeroactual+1
 	$name=$server.servername
+	
+	#muestra progreso
+	$estado="Revisando $numeroactual de $total - $name"
+	$actividad="Revisando"
+	show-progressbar $numeroactual $total $estado $actividad
 	
 	#Chequea que el server este vivo.
 	if (Test-Connection -ComputerName $name -Quiet -Count 1){
@@ -48,13 +71,17 @@ foreach ($server in $serverlist){
 		#Hace el robocopy
 		# | out-null es para que no escriba nada en la consola.
 		robocopy $source $destination $files /MOV /R:0 /W:3 > $null
+		
+		#muestra progreso
+		$estado="Revisando $numeroactual de $total - $name"
+		$actividad="Revisando"
+		show-progressbar $numeroactual $total $estado $actividad
 	
 	}else{
 		#Graba error en C:\temp\certs\logs\reportecerts-DIAMESAÑO-HORAMINUTO.log
-		"OFFLINE: $name ">>"C:\temp\certs\logs\reportecerts-$(get-date -Format 'ddMMyy-hhmm').log"
+		"OFFLINE: $name ">>"C:\temp\certs\logs\reportecerts-$fecha.log"
 		write-output "Error en $name"
-	}
-	
+	}	
 }
 
 ## Recorre la carpeta buscando CSVs y guarda las rutas en $list
