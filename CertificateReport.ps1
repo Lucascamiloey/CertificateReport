@@ -3,15 +3,13 @@
 ## Changelog:
 ##
 
-# V 0.70
+# V 0.7.1
 # 
 # Marca el tiempo total que tardo
 # Vuelve a mostrar todos los datos
 # Setea y crea un directorio de trabajo
-# 
-# 
-
-
+#  
+#
 
 # Agregando funciones
 function show-progressbar([int]$actual,[int]$completo, $estado, $actividad)
@@ -26,14 +24,13 @@ function show-progressbar([int]$actual,[int]$completo, $estado, $actividad)
 	Write-Progress -Activity $actividad -status $estado -percentComplete $porcentaje
 }
 
-
-
-
 ## Inicializar los arrays
 $serverlist=@()
 $certlist=@()
 $numeroactual=0
 $fecha=get-date -Format 'ddMMyy-hhmm'
+#Fija la fecha de inicio
+$fechainicial=get-date 
 
 ## Setea el directorio de trabajo
 $workingdir="c:\temp\certs\$fecha"
@@ -93,6 +90,8 @@ foreach ($server in $serverlist){
 		write-output "Error en $name"
 	}
 	
+	# Marca la hora del final
+	$fechafinal=get-date
 }
 
 ## Recorre la carpeta buscando CSVs y guarda las rutas en $list
@@ -106,3 +105,6 @@ foreach ($file in $list){
 
 ## Exporta el listado de certificados a CSV para que se pueda leer externamente
 $certlist | export-csv -path $workingdir\FINAL-LIST.csv -notypeinformation
+
+## Tiempo que tardo en hacer todos
+$tiempototal=($fechafinal-$fechainicial).ToString().split(".")[0]
