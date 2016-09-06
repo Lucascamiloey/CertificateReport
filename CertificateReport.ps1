@@ -3,11 +3,14 @@
 ## Changelog:
 ##
 
-# V 0.60
-# Log de error en un mismo archivo por corrida
-# Agregado el chequeo verbose con show-progressbar
-# Ahora solo trae columnas relevantes
-#
+# V 0.70
+# 
+# Marca el tiempo total que tardo
+# Vuelve a mostrar todos los datos
+# Setea y crea un directorio de trabajo
+# 
+# 
+
 
 
 # Agregando funciones
@@ -32,12 +35,18 @@ $certlist=@()
 $numeroactual=0
 $fecha=get-date -Format 'ddMMyy-hhmm'
 
+## Setea el directorio de trabajo
+$workingdir="c:\temp\certs\$fecha"
+
+## Crea los directorios de trabajo ($workingdir y \logs)
+New-Item -ItemType directory -Path $workingdir\logs -force
+
 ## Trae la lista de servers que tengan "server" en el campo operatingSystem 
 ## Con esto filtramos los clusters PERO incluimos los nodos.
 $Serverlist=(dsquery * -filter "(objectCategory=Computer)" -attr name operatingSystem -limit 10000)  | select @{label='ServerName';expression={(($_ -split ("   "))[0]).trim()}}, @{label='OperatingSystem';expression={(($_ -split ("   "))[1]  ).trim()}} | where {$_.operatingSystem -like "*server*"}
 
 ## Exporta la lista a un csv para que se pueda ejecutar el proceso de recoleccion de certs
-$serverlist | export-csv -notypeinformation C:\temp\certs\servers.csv
+$serverlist | export-csv -notypeinformation $workingdir\servers.csv
 $total=$serverlist.count
 
 ## Proceso para traer los certs 
@@ -63,7 +72,7 @@ foreach ($server in $serverlist){
 		
 		#Setear los parametros para el robocopy
 		$source="\\$name\c$"
-		$destination="c:\temp\certs\"
+		$destination=$workingdir
 		$files="$name.csv"
 		#Deprecamos $options porque no andaba bien
 		#$options="/MOV /R:0 /W:3"
@@ -77,15 +86,17 @@ foreach ($server in $serverlist){
 		$actividad="Revisando"
 		show-progressbar $numeroactual $total $estado $actividad
 	
+	
 	}else{
-		#Graba error en C:\temp\certs\logs\reportecerts-DIAMESAÑO-HORAMINUTO.log
-		"OFFLINE: $name ">>"C:\temp\certs\logs\reportecerts-$fecha.log"
+		#Graba error en $workingdir\logs\reportecerts-DIAMESAÑO-HORAMINUTO.log
+		"OFFLINE: $name ">>"$workingdir\logs\reportecerts-$fecha.log"
 		write-output "Error en $name"
-	}	
+	}
+	
 }
 
 ## Recorre la carpeta buscando CSVs y guarda las rutas en $list
-$list=Get-ChildItem C:\Temp\certs\* -Include *.csv -Exclude servers.csv
+$list=Get-ChildItem $workingdir\* -Include *.csv -Exclude servers.csv
 
 ## Recorre el array $list y recopila la informacion en $certlist
 foreach ($file in $list){
@@ -94,4 +105,4 @@ foreach ($file in $list){
 }
 
 ## Exporta el listado de certificados a CSV para que se pueda leer externamente
-$certlist | export-csv -path C:\temp\certs\cert-list-full.csv 
+$certlist | export-csv -path $workingdir\FINAL-LIST.csv -notypeinformation
