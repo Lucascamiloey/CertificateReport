@@ -3,7 +3,7 @@
 ## Changelog:
 ##
 
-# V 0.7.1
+# V 0.7.2
 # 
 # Marca el tiempo total que tardo
 # Vuelve a mostrar todos los datos
@@ -63,7 +63,7 @@ foreach ($server in $serverlist){
 		# Descomentar la siguiente linea para debuggear psexec
 		write-output "ejecutando psexec en $name"
 		## -inputformat none hace que no se cuelgue despues de ejecutar
-		psexec \\$name powershell.exe -inputformat none -Command "& {Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber |   Export-Csv -path c:\$name.csv -NoTypeInformation}"
+		psexec \\$name powershell.exe -inputformat none -Command "& {Get-ChildItem -Path cert:\LocalMachine\My | Select-Object -property * |   Export-Csv -path c:\$name.csv -NoTypeInformation}"
 		# Descomentar la siguiente linea para debuggear robocopy
 		write-output "Robocopiando $name.csv"
 		
