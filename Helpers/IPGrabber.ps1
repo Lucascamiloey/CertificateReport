@@ -9,7 +9,7 @@ function get-computerip ($targetcomputer)
 	$help=test-connection $targetcomputer -count 1 2>null
 	if ($help){
 		$returnthis.IPv4Address=$help.IPv4Address
-		$returnthis.IPv6Address=$help.ProtocolAddress
+		$returnthis.IPv6Address=$help.IPv6Address
 		$returnthis.Online=$true
 	} 
 	
