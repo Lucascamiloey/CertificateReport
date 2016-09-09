@@ -2,8 +2,6 @@
 	- IP y Nombre
 	- (Test-Connection $name -Count 1 )
 		- $_.IPV4Address.IPAddressToString #para sacar la ip
-
--
 - Atrapar los errores de psexec ("make sure the default admin$ share is enabled", "Logon failure", etc) y verificar que los loguee en errorlog
     - usar  2>sarasa.log en el final del psexec, levantar sarasa.log en una variable y buscar errores ahi.
     - Ver como automatizar eso
