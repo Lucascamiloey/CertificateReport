@@ -19,6 +19,6 @@ function get-computerip ($targetcomputer)
 $listafinal=@()
 
 foreach ($server in $serverlist){
-	$name=$server.name
+	$name=$server.servername
 	$listafinal+=get-computerip $name
 }
