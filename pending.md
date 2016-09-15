@@ -1,8 +1,8 @@
-- Sacar lista de maquinas vivas con ips
+- ~Sacar lista de maquinas vivas con ips~ LISTO EN v7.0
 	- IP y Nombre
 	- (Test-Connection $name -Count 1 )
 		- $_.IPV4Address.IPAddressToString #para sacar la ip
-- Atrapar los errores de psexec ("make sure the default admin$ share is enabled", "Logon failure", etc) y verificar que los loguee en errorlog
+- ~Atrapar los errores de psexec ("make sure the default admin$ share is enabled", "Logon failure", etc) y verificar que los loguee en errorlog~ LISTO EN v8.0.1
     - usar  2>sarasa.log en el final del psexec, levantar sarasa.log en una variable y buscar errores ahi.
     - Ver como automatizar eso
 		- psexec 2>temp.log
