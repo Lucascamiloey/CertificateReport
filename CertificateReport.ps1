@@ -3,13 +3,11 @@
 ## Changelog:
 ##
 
-# V 0.7.2
+# V 0.80
 # 
-# Marca el tiempo total que tardo
-# Vuelve a mostrar todos los datos
-# Setea y crea un directorio de trabajo
-#  
-#
+# Permite correr un subset definido de la lista que se encontro. - Linea 59
+# Permite usar AdFind para servidores que no permiten instalar RSAT - Linea 44
+# 
 
 # Agregando funciones
 function show-progressbar([int]$actual,[int]$completo, $estado, $actividad)
@@ -42,12 +40,48 @@ New-Item -ItemType directory -Path $workingdir\logs -force
 ## Con esto filtramos los clusters PERO incluimos los nodos.
 $Serverlist=(dsquery * -filter "(objectCategory=Computer)" -attr name operatingSystem -limit 10000)  | select @{label='ServerName';expression={(($_ -split ("   "))[0]).trim()}}, @{label='OperatingSystem';expression={(($_ -split ("   "))[1]  ).trim()}} | where {$_.operatingSystem -like "*server*"}
 
+#############################################################################################
+## Tambien podemos usar AdFind (No necesita ser instalado, solo copiado dentro del %path%) ##
+#############################################################################################
+## Descomentar en caso de uso - Comentar la linea de DSQUERY
+
+#  $serverlist=(AdFind.exe -f "(objectCategory=Computer)" Name operatingSystem -csv -nodn) | select @{label='ServerName';expression={(($_ -split (","))[0]).trim('"')}}, @{label='OperatingSystem';expression={(($_ -split (","))[1]  ).trim('"')}} | where {$_.operatingSystem -like "*server*"}
+
+#############################################################################################
+## Fin de uso de AdFind																	   ##	
+#############################################################################################
+
 ## Exporta la lista a un csv para que se pueda ejecutar el proceso de recoleccion de certs
 $serverlist | export-csv -notypeinformation $workingdir\servers.csv
+
+############################################################################################
+## Proceso para seleccionar un subset de la lista - descomentar en caso de querer usarlo  ##
+############################################################################################
+#
+## Obtiene el subset de servers que se quieren procesar
+# $acomparar=Get-Content $workingdir\subset.txt
+### Crea el array de ayuda
+# $newserverlist=@()
+## Guarda el viejo $serverlist para futuras referencias
+# $oldserverlist=$serverlist
+## Compara todos los registros de $serverlist y guarda los que estan en el subset indicado en el array $newserverlist
+# foreach ($item in $serverlist){
+# 	if ($acomparar -contains $item.servername){
+# 		$newserverlist+=$item
+# 	}
+# }
+# 
+#
+## Hace el cambio de array para que el script siga funcionando adecuadamente con el nuevo subset
+# $serverlist=$newserverlist
+# 
+############################################################################################
+## Fin de uso de subset																	  ##
+############################################################################################
+
 $total=$serverlist.count
 
 ## Proceso para traer los certs 
-
 foreach ($server in $serverlist){
 	#sumando iteracion
 	$numeroactual=$numeroactual+1
@@ -63,7 +97,7 @@ foreach ($server in $serverlist){
 		# Descomentar la siguiente linea para debuggear psexec
 		write-output "ejecutando psexec en $name"
 		## -inputformat none hace que no se cuelgue despues de ejecutar
-		psexec \\$name powershell.exe -inputformat none -Command "& {Get-ChildItem -Path cert:\LocalMachine\My | Select-Object -property * |   Export-Csv -path c:\$name.csv -NoTypeInformation}"
+		psexec \\$name powershell.exe -inputformat none -Command "& {Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber |   Export-Csv -path c:\$name.csv -NoTypeInformation}"
 		# Descomentar la siguiente linea para debuggear robocopy
 		write-output "Robocopiando $name.csv"
 		
