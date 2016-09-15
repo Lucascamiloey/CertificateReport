@@ -3,12 +3,17 @@
 ## Changelog:
 ##
 
-# V 0.8.1 
+# V 0.8.2
 # 
+#0.8
 # Permite correr un subset definido de la lista que se encontro
 # Permite usar AdFind para servidores que no permiten instalar RSAT 
 # 
+#0.8.1 
 # AGREGA MANEJO DE ERRORES 
+# 
+#0.8.2 
+# Agrega manejo de servers sin certificado (los cuenta y los muestra como vacios)
 # 
 
 # Agregando funciones
@@ -143,10 +148,28 @@ foreach ($server in $serverlist){
 ## Recorre la carpeta buscando CSVs y guarda las rutas en $list
 $list=Get-ChildItem $workingdir\* -Include *.csv -Exclude servers.csv
 
+## Array de ayuda para recopilar certificados
+$certhelper=@()
+$certlist=@()
 ## Recorre el array $list y recopila la informacion en $certlist
 foreach ($file in $list){
 	$servername=$file.name.trim(".csv")
-	$certlist+=Import-Csv $file | select @{label='ServerName';expression={$servername}}, *
+	$certhelper=Import-Csv $file | select @{label='ServerName';expression={$servername}}, *
+	if ($certhelper)
+	{
+		$certlist+=$certhelper
+	}else{
+		$Tempcerthelp = New-Object PSCustomObject
+		$Tempcerthelp | Add-Member -type NoteProperty -name ServerName -Value $servername
+		$Tempcerthelp | Add-Member -type NoteProperty -name Subject -Value "None"
+		$Tempcerthelp | Add-Member -type NoteProperty -name Issuer -Value "None"
+		$Tempcerthelp | Add-Member -type NoteProperty -name NotBefore -Value "None"
+		$Tempcerthelp | Add-Member -type NoteProperty -name NotAfter -Value "None"
+		$Tempcerthelp | Add-Member -type NoteProperty -name Thumbprint -Value "0000"
+		$Tempcerthelp | Add-Member -type NoteProperty -name SerialNumber -Value "0000"
+		$certlist+=$Tempcerthelp
+		Remove-Variable tempcerthelp		
+	}
 }
 
 ## Exporta el listado de certificados a CSV para que se pueda leer externamente
