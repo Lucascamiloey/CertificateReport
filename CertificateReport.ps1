@@ -3,12 +3,10 @@
 ## Changelog:
 ##
 
-# V 0.8.1
+# V 0.80
 # 
-# Permite correr un subset definido de la lista que se encontro
-# Permite usar AdFind para servidores que no permiten instalar RSAT 
-# 
-# AGREGA MANEJO DE ERRORES 
+# Permite correr un subset definido de la lista que se encontro. - Linea 59
+# Permite usar AdFind para servidores que no permiten instalar RSAT - Linea 44
 # 
 
 # Agregando funciones
@@ -99,41 +97,31 @@ foreach ($server in $serverlist){
 		# Descomentar la siguiente linea para debuggear psexec
 		write-output "ejecutando psexec en $name"
 		## -inputformat none hace que no se cuelgue despues de ejecutar
-		psexec \\$name powershell.exe -inputformat none -Command "& {Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber |   Export-Csv -path c:\$name.csv -NoTypeInformation}" 2>"$workingdir\logs\temp.log"
+		psexec \\$name powershell.exe -inputformat none -Command "& {Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber |   Export-Csv -path c:\$name.csv -NoTypeInformation}"
+		# Descomentar la siguiente linea para debuggear robocopy
+		write-output "Robocopiando $name.csv"
 		
-		## MANEJO de errores
-		#Toma el temp.log 
-		$temporal=get-content $workingdir\logs\temp.log
-		$finaldelerror=($temporal.count -2)
-		#Revisa la anteultima linea buscando el codigo de salida 0 (todo ok)
-		if (($temporal[$finaldelerror]) -like "*error code 0*") 
-		{			
-			# Descomentar la siguiente linea para debuggear robocopy
-			write-output "Robocopiando $name.csv"
-			
-			#Setear los parametros para el robocopy
-			$source="\\$name\c$"
-			$destination=$workingdir
-			$files="$name.csv"
-			#Deprecamos $options porque no andaba bien
-			#$options="/MOV /R:0 /W:3"
+		#Setear los parametros para el robocopy
+		$source="\\$name\c$"
+		$destination=$workingdir
+		$files="$name.csv"
+		#Deprecamos $options porque no andaba bien
+		#$options="/MOV /R:0 /W:3"
+	
+		#Hace el robocopy
+		# | out-null es para que no escriba nada en la consola.
+		robocopy $source $destination $files /MOV /R:0 /W:3 > $null
 		
-			#Hace el robocopy
-			# | out-null es para que no escriba nada en la consola.
-			robocopy $source $destination $files /MOV /R:0 /W:3 > $null
-			
-		}else{
-			#si devuelve otra cosa, es un error a revisar
-			$temporal[12..$finaldelerror]>"$workingdir\logs\$name-Error-$fecha.log"
-			"ERROR: $name - Revisar log detallado">>"$workingdir\logs\reportecerts-$fecha.log"
-			write-output "ERROR FATAL EN $name"
-		}
+		#muestra progreso
+		$estado="Revisando $numeroactual de $total - $name"
+		$actividad="Revisando"
+		show-progressbar $numeroactual $total $estado $actividad
 	
 	
 	}else{
 		#Graba error en $workingdir\logs\reportecerts-DIAMESAÑO-HORAMINUTO.log
 		"OFFLINE: $name ">>"$workingdir\logs\reportecerts-$fecha.log"
-		write-output "Timeout en $name"
+		write-output "Error en $name"
 	}
 	
 	# Marca la hora del final
