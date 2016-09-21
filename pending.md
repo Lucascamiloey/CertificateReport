@@ -7,7 +7,7 @@
 	- [x] Ver como automatizar eso
 		- [x] psexec 2>temp.log
 		- [x] $temperror=get-content .\temp.log
-		- [x] (parsear esto con .split() y ver que linea da el error)
+		- [x] parsear esto con .split() y ver que linea da el error
 - [ ] Exportar a SQL
 - [ ] Mail semanal con reporte
 - [ ] Manejo de errores
