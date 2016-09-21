@@ -3,7 +3,7 @@
 ## Changelog:
 ##
 
-# V 0.8.2
+# V 0.8.3
 # 
 #0.8
 # Permite correr un subset definido de la lista que se encontro
@@ -14,6 +14,10 @@
 # 
 #0.8.2 
 # Agrega manejo de servers sin certificado (los cuenta y los muestra como vacios)
+# 
+#0.8.3 
+# Cambia caracteres del log de errores para mejor manejo
+# Agrega fila inicial en log de errores
 # 
 
 # Agregando funciones
@@ -42,6 +46,8 @@ $workingdir="c:\temp\certs\$fecha"
 
 ## Crea los directorios de trabajo ($workingdir y \logs)
 New-Item -ItemType directory -Path $workingdir\logs -force
+"ERROR;NAME">"$workingdir\logs\reportecerts-$fecha.log"
+
 
 ## Trae la lista de servers que tengan "server" en el campo operatingSystem 
 ## Con esto filtramos los clusters PERO incluimos los nodos.
@@ -130,14 +136,14 @@ foreach ($server in $serverlist){
 		}else{
 			#si devuelve otra cosa, es un error a revisar
 			$temporal[12..$finaldelerror]>"$workingdir\logs\$name-Error-$fecha.log"
-			"ERROR: $name - Revisar log detallado">>"$workingdir\logs\reportecerts-$fecha.log"
+			"FATAL;$name">>"$workingdir\logs\reportecerts-$fecha.log"
 			write-output "ERROR FATAL EN $name"
 		}
 	
 	
 	}else{
 		#Graba error en $workingdir\logs\reportecerts-DIAMESAÑO-HORAMINUTO.log
-		"OFFLINE: $name ">>"$workingdir\logs\reportecerts-$fecha.log"
+		"OFFLINE;$name ">>"$workingdir\logs\reportecerts-$fecha.log"
 		write-output "Timeout en $name"
 	}
 	
