@@ -108,16 +108,15 @@ foreach ($server in $serverlist){
 	#Chequea que el server este vivo.
 	if (Test-Connection -ComputerName $name -Quiet -Count 1){
 		# Descomentar la siguiente linea para debuggear psexec
-		write-output "ejecutando psexec en $name"
-		## -inputformat none hace que no se cuelgue despues de ejecutar
-		psexec \\$name powershell.exe -inputformat none -Command "& {Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber |   Export-Csv -path c:\$name.csv -NoTypeInformation}" 2>"$workingdir\logs\temp.log"
+		write-output "Ejecutando ScriptBlock en $name"
+		## Ahora con invoke-command
+		Invoke-Command -ComputerName $name -ScriptBlock {Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber |   Export-Csv -path c:\tempcsv.csv -NoTypeInformation} 2>"$workingdir\logs\temp.log"
 		
 		## MANEJO de errores
 		#Toma el temp.log 
 		$temporal=get-content $workingdir\logs\temp.log
-		$finaldelerror=($temporal.count -2)
-		#Revisa la anteultima linea buscando el codigo de salida 0 (todo ok)
-		if (($temporal[$finaldelerror]) -like "*error code 0*") 
+		# Revisa que $temporal no tenga errores
+		if (!$temporal)  
 		{			
 			# Descomentar la siguiente linea para debuggear robocopy
 			write-output "Robocopiando $name.csv"
@@ -125,17 +124,19 @@ foreach ($server in $serverlist){
 			#Setear los parametros para el robocopy
 			$source="\\$name\c$"
 			$destination=$workingdir
-			$files="$name.csv"
+			$files="tempcsv.csv"
 			#Deprecamos $options porque no andaba bien
 			#$options="/MOV /R:0 /W:3"
 		
 			#Hace el robocopy
 			# | out-null es para que no escriba nada en la consola.
 			robocopy $source $destination $files /MOV /R:0 /W:3 > $null
+			#Cambia el nombre del archivo
+			Rename-Item -Path $workingdir\$files -NewName "$name.csv"
 			
 		}else{
 			#si devuelve otra cosa, es un error a revisar
-			$temporal[12..$finaldelerror]>"$workingdir\logs\$name-Error-$fecha.log"
+			$temporal[7]>"$workingdir\logs\$name-Error-$fecha.log"
 			"FATAL;$name">>"$workingdir\logs\reportecerts-$fecha.log"
 			write-output "ERROR FATAL EN $name"
 		}
