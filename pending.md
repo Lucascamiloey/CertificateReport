@@ -13,4 +13,4 @@
 - [ ] Manejo de errores
 - [ ] Agregar lista de excepciones
 - [ ] Linux?
-- [ ] WinRM?
+- [x] WinRM?
