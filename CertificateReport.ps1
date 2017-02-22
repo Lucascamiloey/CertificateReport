@@ -22,6 +22,12 @@
 #0.8.4 
 # Agrega filtro nuevo para rackspace
 # Mejora el manejo de errores con errores mas explicitos
+#
+#0.8.5 
+# Depreca Robocopy y evita la apertura de puertos de SMB
+# Incrementa la velocidad de ejecucion un 70%
+
+
 
 # Agregando funciones
 function show-progressbar([int]$actual,[int]$completo, $estado, $actividad)
@@ -115,39 +121,19 @@ foreach ($server in $serverlist){
 	
 	#Chequea que el server este vivo.
 	if (Test-Connection -ComputerName $name -Quiet -Count 1){
-		# Descomentar la siguiente linea para debuggear psexec
-		write-output "Ejecutando ScriptBlock en $name"
-		## Ahora con invoke-command
-		Invoke-Command -ComputerName $name -ScriptBlock {Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber |   Export-Csv -path c:\tempcsv.csv -NoTypeInformation} 2>"$workingdir\logs\temp.log"
+		## WINRM
+		#Invoca un comando remoto que trae los datos de los certificados, lo exporta a un CSV local, toma los datos crudos del CSV y los pega en un archivo local.
+		Invoke-Command -ComputerName $name -ScriptBlock {Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber |   Export-Csv -path c:\tempcsv.csv -NoTypeInformation ; Get-Content C:\tempcsv.csv} | Set-Content $workingdir\$name.csv 2>"$workingdir\logs\temp.log" 
+		
+		# Descomentar la siguiente linea para debuggear el copiado
+		write-output "Copiando $name.csv"
 		
 		## MANEJO de errores
 		#Toma el temp.log 
 		$temporal=get-content $workingdir\logs\temp.log
-		# Revisa que $temporal no tenga errores
-		if (!$temporal)  
+		#### SI ESTA TODO OK
+		if ($temporal) 
 		{			
-			# Descomentar la siguiente linea para debuggear robocopy
-			write-output "Robocopiando $name.csv"
-			
-			#Setear los parametros para el robocopy
-			$source="\\$name\c$"
-			$destination=$workingdir
-			$files="tempcsv.csv"
-			#Deprecamos $options porque no andaba bien
-			#$options="/MOV /R:0 /W:3"
-		
-			#Hace el robocopy
-			# | out-null es para que no escriba nada en la consola.
-			robocopy $source $destination $files /MOV /R:0 /W:3 > $null
-			#Cambia el nombre del archivo
-			Rename-Item -Path $workingdir\$files -NewName "$name.csv"
-			#Falla cuando no existe el archivo, revisar robocopy. Probable error de permisos?
-			if (!$?){ 
-				write-output "ERROR EN $name"
-				"ROBOCOPY-ERROR;$name">>"$workingdir\logs\reportecerts-$fecha.log"
-			}
-			
-		}else{
 			#si devuelve otra cosa, es un error a revisar
 			$temporal>"$workingdir\logs\$name-Error-$fecha.log"
 			"FATAL;$name">>"$workingdir\logs\reportecerts-$fecha.log"
