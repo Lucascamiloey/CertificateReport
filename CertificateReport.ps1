@@ -3,7 +3,7 @@
 ## Changelog:
 ##
 
-# V 0.8.3
+# V 0.8.4
 # 
 #0.8
 # Permite correr un subset definido de la lista que se encontro
@@ -19,6 +19,9 @@
 # Cambia caracteres del log de errores para mejor manejo
 # Agrega fila inicial en log de errores
 # 
+#0.8.4 
+# Agrega filtro nuevo para rackspace
+# Mejora el manejo de errores con errores mas explicitos
 
 # Agregando funciones
 function show-progressbar([int]$actual,[int]$completo, $estado, $actividad)
@@ -51,7 +54,12 @@ New-Item -ItemType directory -Path $workingdir\logs -force
 
 ## Trae la lista de servers que tengan "server" en el campo operatingSystem 
 ## Con esto filtramos los clusters PERO incluimos los nodos.
-$Serverlist=(dsquery * -filter "(objectCategory=Computer)" -attr name operatingSystem -limit 10000)  | select @{label='ServerName';expression={(($_ -split ("   "))[0]).trim()}}, @{label='OperatingSystem';expression={(($_ -split ("   "))[1]  ).trim()}} | where {$_.operatingSystem -like "*server*"}
+## Query original 
+## $Serverlist=(dsquery * -filter "(objectCategory=Computer)" -attr name operatingSystem -limit 10000)  | select @{label='ServerName';expression={(($_ -split ("   "))[0]).trim()}}, @{label='OperatingSystem';expression={(($_ -split ("   "))[1]  ).trim()}} | where {$_.operatingSystem -like "*server*"}
+## Query modificada para rackspace US, solo servers Tier 1
+$Serverlist=(dsquery * "OU=US,OU=Tier 1 Servers,OU=Servers,DC=discovery,DC=local" -filter "(objectCategory=Computer)" -attr name operatingSystem -limit 10000)  | select @{label='ServerName';expression={(($_ -split ("   "))[0]).trim()}}, @{label='OperatingSystem';expression={(($_ -split ("   "))[1]  ).trim()}} | where {$_.operatingSystem -like "*server*"}
+
+
 
 #############################################################################################
 ## Tambien podemos usar AdFind (No necesita ser instalado, solo copiado dentro del %path%) ##
@@ -133,10 +141,15 @@ foreach ($server in $serverlist){
 			robocopy $source $destination $files /MOV /R:0 /W:3 > $null
 			#Cambia el nombre del archivo
 			Rename-Item -Path $workingdir\$files -NewName "$name.csv"
+			#Falla cuando no existe el archivo, revisar robocopy. Probable error de permisos?
+			if (!$?){ 
+				write-output "ERROR EN $name"
+				"ROBOCOPY-ERROR;$name">>"$workingdir\logs\reportecerts-$fecha.log"
+			}
 			
 		}else{
 			#si devuelve otra cosa, es un error a revisar
-			$temporal[7]>"$workingdir\logs\$name-Error-$fecha.log"
+			$temporal>"$workingdir\logs\$name-Error-$fecha.log"
 			"FATAL;$name">>"$workingdir\logs\reportecerts-$fecha.log"
 			write-output "ERROR FATAL EN $name"
 		}
@@ -184,3 +197,11 @@ $certlist | export-csv -path $workingdir\FINAL-LIST.csv -notypeinformation
 
 ## Tiempo que tardo en hacer todos
 $tiempototal=($fechafinal-$fechainicial).ToString().split(".")[0]
+
+##########################################
+## exportar datos a SQL: Pendiente 		##
+## Evaluar el pase de fecha a juliano	##
+## 		y castearlo como gregoriano 	##
+## 		directamente en la base			##
+##########################################
+
