@@ -33,6 +33,7 @@
 #
 #0.8.7
 #
+# Agrega el dato DaysToExpiry al reporte
 # Mejora el manejo de ScriptBlock
 #
 
