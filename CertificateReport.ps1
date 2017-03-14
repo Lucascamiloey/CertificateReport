@@ -26,7 +26,11 @@
 #0.8.5 
 # Depreca Robocopy y evita la apertura de puertos de SMB
 # Incrementa la velocidad de ejecucion un 70%
-
+#
+#0.8.6
+# Agrega envio de correo.
+# Todavia en testing, falta filtrar por certificados a expirar y volcarlo en html
+#
 
 
 # Agregando funciones
@@ -191,3 +195,17 @@ $tiempototal=($fechafinal-$fechainicial).ToString().split(".")[0]
 ## 		directamente en la base			##
 ##########################################
 
+#############
+## TESTING ##
+#############
+
+## Variables para email:
+$toAddress="lucas.camilo@ar.ey.com", "pablo.gessaga@ar.ey.com"
+$fromAddress="CertScript-TESTING@ey.com"
+$subject="TODOS los certs"
+$smtp="smtp.discovery.local"
+$body= "Adjuntos: Lista final de certificados (FINAL-LIST.csv) y lista de errores (reportecerts-$fecha.log). <br>Tardo $tiempototal hs en correr"
+$Attachments="$workingdir\FINAL-LIST.csv", "$workingdir\logs\reportecerts-$fecha.log"
+
+# Send out the email message!
+Send-MailMessage -to $toAddress  -from $fromAddress -subject $subject -smtpserver $smtp -body $body -Attachments $Attachments -BodyAsHtml 
