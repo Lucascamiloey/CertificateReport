@@ -127,23 +127,22 @@ foreach ($server in $serverlist){
 	if (Test-Connection -ComputerName $name -Quiet -Count 1){
 		## WINRM
 		#Invoca un comando remoto que trae los datos de los certificados, lo exporta a un CSV local, toma los datos crudos del CSV y los pega en un archivo local.
-		Invoke-Command -ComputerName $name -ScriptBlock {Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber |   Export-Csv -path c:\tempcsv.csv -NoTypeInformation ; Get-Content C:\tempcsv.csv} | Set-Content $workingdir\$name.csv 2>"$workingdir\logs\temp.log" 
-		
-		# Descomentar la siguiente linea para debuggear el copiado
-		write-output "Copiando $name.csv"
-		
+		Invoke-Command -ComputerName $name -ScriptBlock {Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber |   Export-Csv -path c:\tempcsv.csv -NoTypeInformation ; Get-Content C:\tempcsv.csv} 2>"$workingdir\logs\temp.log" | Set-Content $workingdir\$name.csv 
 		## MANEJO de errores
 		#Toma el temp.log 
 		$temporal=get-content $workingdir\logs\temp.log
-		#### SI ESTA TODO OK
+		#### SI NO ESTA TODO OK
 		if ($temporal) 
 		{			
 			#si devuelve otra cosa, es un error a revisar
 			$temporal>"$workingdir\logs\$name-Error-$fecha.log"
 			"FATAL;$name">>"$workingdir\logs\reportecerts-$fecha.log"
 			write-output "ERROR FATAL EN $name"
+		}else{	
+			# ESTA TODO PERFECTO
+			# Descomentar la siguiente linea para debuggear el copiado
+			write-output "Copiando $name.csv"
 		}
-	
 	
 	}else{
 		#Graba error en $workingdir\logs\reportecerts-DIAMESAÑO-HORAMINUTO.log
