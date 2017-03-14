@@ -31,6 +31,10 @@
 # Agrega envio de correo.
 # Todavia en testing, falta filtrar por certificados a expirar y volcarlo en html
 #
+#0.8.7
+#
+# Mejora el manejo de ScriptBlock
+#
 
 
 # Agregando funciones
@@ -61,6 +65,8 @@ $workingdir="c:\temp\certs\$fecha"
 New-Item -ItemType directory -Path $workingdir\logs -force
 "ERROR;NAME">"$workingdir\logs\reportecerts-$fecha.log"
 
+## Bloque de script que levanta los certificados
+$ScriptBlock={Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber, @{label='DaysToExpiry';expression={((get-date $_.NotAfter)-(get-date)).days}} | Export-Csv -path c:\tempcsv.csv -NoTypeInformation ; Get-Content C:\tempcsv.csv}
 
 ## Trae la lista de servers que tengan "server" en el campo operatingSystem 
 ## Con esto filtramos los clusters PERO incluimos los nodos.
@@ -127,7 +133,7 @@ foreach ($server in $serverlist){
 	if (Test-Connection -ComputerName $name -Quiet -Count 1){
 		## WINRM
 		#Invoca un comando remoto que trae los datos de los certificados, lo exporta a un CSV local, toma los datos crudos del CSV y los pega en un archivo local.
-		Invoke-Command -ComputerName $name -ScriptBlock {Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber |   Export-Csv -path c:\tempcsv.csv -NoTypeInformation ; Get-Content C:\tempcsv.csv} 2>"$workingdir\logs\temp.log" | Set-Content $workingdir\$name.csv 
+		Invoke-Command -ComputerName $name -ScriptBlock $ScriptBlock 2>"$workingdir\logs\temp.log" | Set-Content $workingdir\$name.csv 
 		## MANEJO de errores
 		#Toma el temp.log 
 		$temporal=get-content $workingdir\logs\temp.log
@@ -163,11 +169,13 @@ $certlist=@()
 ## Recorre el array $list y recopila la informacion en $certlist
 foreach ($file in $list){
 	$servername=$file.name.trim(".csv")
+	#Chequea que el servidor tenga certificados
 	$certhelper=Import-Csv $file | select @{label='ServerName';expression={$servername}}, *
 	if ($certhelper)
 	{
 		$certlist+=$certhelper
 	}else{
+		# Si no tiene certificados, lo agrega igual para contabilizar
 		$Tempcerthelp = New-Object PSCustomObject
 		$Tempcerthelp | Add-Member -type NoteProperty -name ServerName -Value $servername
 		$Tempcerthelp | Add-Member -type NoteProperty -name Subject -Value "None"
@@ -176,6 +184,7 @@ foreach ($file in $list){
 		$Tempcerthelp | Add-Member -type NoteProperty -name NotAfter -Value "None"
 		$Tempcerthelp | Add-Member -type NoteProperty -name Thumbprint -Value "0000"
 		$Tempcerthelp | Add-Member -type NoteProperty -name SerialNumber -Value "0000"
+		$Tempcerthelp | Add-Member -type NoteProperty -name DaysToExpiry -Value ""
 		$certlist+=$Tempcerthelp
 		Remove-Variable tempcerthelp		
 	}
