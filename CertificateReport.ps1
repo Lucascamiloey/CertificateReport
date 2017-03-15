@@ -36,6 +36,11 @@
 # Agrega el dato DaysToExpiry al reporte
 # Mejora el manejo de ScriptBlock
 #
+#0.8.8
+#
+# Suma reporte por mail.
+# Envia una tabla con los certificados prontos a expirar (60 dias)
+#
 
 
 # Agregando funciones
@@ -67,7 +72,7 @@ New-Item -ItemType directory -Path $workingdir\logs -force
 "ERROR;NAME">"$workingdir\logs\reportecerts-$fecha.log"
 
 ## Bloque de script que levanta los certificados
-$ScriptBlock={Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber, @{label='DaysToExpiry';expression={((get-date $_.NotAfter)-(get-date)).days}} | Export-Csv -path c:\tempcsv.csv -NoTypeInformation ; Get-Content C:\tempcsv.csv}
+$ScriptBlock={Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject, Issuer, NotBefore, NotAfter, Thumbprint, SerialNumber, @{label='DaysToExpiry';expression={[int]((get-date $_.NotAfter)-(get-date)).days}} | Export-Csv -path c:\tempcsv.csv -NoTypeInformation ; Get-Content C:\tempcsv.csv}
 
 ## Trae la lista de servers que tengan "server" en el campo operatingSystem 
 ## Con esto filtramos los clusters PERO incluimos los nodos.
@@ -209,12 +214,34 @@ $tiempototal=($fechafinal-$fechainicial).ToString().split(".")[0]
 #############
 
 ## Variables para email:
+
+#############
+### HEADER ##
+#############
+
+$Header = "<style>"
+$Header = $Header + "BODY{background-color:white;}"
+$Header = $Header + "TABLE{border-width: 1px;border-style: solid;border-color: black;border-collapse: collapse;}"
+$Header = $Header + "TH{border-width: 1px;padding: 0px;border-style: solid;border-color: black;background-color:gray}"
+$Header = $Header + "TD{border-width: 1px;padding: 2px;border-style: solid;border-color: black;background-color:white}"
+$Header = $Header + "</style>"
+
+############
+### BODY ###
+############
+
+$body=$certlist | where {[int]$_.daystoexpiry -le 60 -and [int]$_.daystoexpiry -ge -10} | select servername, subject, NotAfter, daystoexpiry | ConvertTo-Html -Head $Header | out-string
+
 $toAddress="lucas.camilo@ar.ey.com", "pablo.gessaga@ar.ey.com"
 $fromAddress="CertScript-TESTING@ey.com"
 $subject="TODOS los certs"
 $smtp="smtp.discovery.local"
-$body= "Adjuntos: Lista final de certificados (FINAL-LIST.csv) y lista de errores (reportecerts-$fecha.log). <br>Tardo $tiempototal hs en correr"
+$body+= "<br><br>Adjuntos: Lista final de certificados (FINAL-LIST.csv) y lista de errores (reportecerts-$fecha.log). <br>Tardo $tiempototal hs en correr"
 $Attachments="$workingdir\FINAL-LIST.csv", "$workingdir\logs\reportecerts-$fecha.log"
+
+
+
+
 
 # Send out the email message!
 Send-MailMessage -to $toAddress  -from $fromAddress -subject $subject -smtpserver $smtp -body $body -Attachments $Attachments -BodyAsHtml 
