@@ -2,39 +2,6 @@
 ##
 ## Changelog:
 ##
-
-# V 0.8.4
-# 
-#0.8
-# Permite correr un subset definido de la lista que se encontro
-# Permite usar AdFind para servidores que no permiten instalar RSAT 
-# 
-#0.8.1 
-# AGREGA MANEJO DE ERRORES 
-# 
-#0.8.2 
-# Agrega manejo de servers sin certificado (los cuenta y los muestra como vacios)
-# 
-#0.8.3 
-# Cambia caracteres del log de errores para mejor manejo
-# Agrega fila inicial en log de errores
-# 
-#0.8.4 
-# Agrega filtro nuevo para rackspace
-# Mejora el manejo de errores con errores mas explicitos
-#
-#0.8.5 
-# Depreca Robocopy y evita la apertura de puertos de SMB
-# Incrementa la velocidad de ejecucion un 70%
-#
-#0.8.6
-# Agrega envio de correo.
-# Todavia en testing, falta filtrar por certificados a expirar y volcarlo en html
-#
-#0.8.7
-#
-# Agrega el dato DaysToExpiry al reporte
-# Mejora el manejo de ScriptBlock
 #
 #0.8.8
 #
@@ -78,8 +45,10 @@ $ScriptBlock={Get-ChildItem -Path cert:\LocalMachine\My | Select-Object Subject,
 ## Con esto filtramos los clusters PERO incluimos los nodos.
 ## Query original 
 ## $Serverlist=(dsquery * -filter "(objectCategory=Computer)" -attr name operatingSystem -limit 10000)  | select @{label='ServerName';expression={(($_ -split ("   "))[0]).trim()}}, @{label='OperatingSystem';expression={(($_ -split ("   "))[1]  ).trim()}} | where {$_.operatingSystem -like "*server*"}
-## Query modificada para rackspace US, solo servers Tier 1
+## Query modificada para rackspace US, solo servers Tier 1. 
 $Serverlist=(dsquery * "OU=US,OU=Tier 1 Servers,OU=Servers,DC=discovery,DC=local" -filter "(objectCategory=Computer)" -attr name operatingSystem -limit 10000)  | select @{label='ServerName';expression={(($_ -split ("   "))[0]).trim()}}, @{label='OperatingSystem';expression={(($_ -split ("   "))[1]  ).trim()}} | where {$_.operatingSystem -like "*server*"}
+## Agrega servers de PCE-A
+$Serverlist+=(dsquery * "OU=PCE-A,OU=Tier 1 Servers,OU=Servers,DC=discovery,DC=local" -filter "(objectCategory=Computer)" -attr name operatingSystem -limit 10000)  | select @{label='ServerName';expression={(($_ -split ("   "))[0]).trim()}}, @{label='OperatingSystem';expression={(($_ -split ("   "))[1]  ).trim()}} | where {$_.operatingSystem -like "*server*"}
 
 
 
@@ -136,7 +105,7 @@ foreach ($server in $serverlist){
 	show-progressbar $numeroactual $total $estado $actividad
 	
 	#Chequea que el server este vivo.
-	if (Test-Connection -ComputerName $name -Quiet -Count 1){
+	if (test-wsman $name -ErrorAction silentlycontinue){
 		## WINRM
 		#Invoca un comando remoto que trae los datos de los certificados, lo exporta a un CSV local, toma los datos crudos del CSV y los pega en un archivo local.
 		Invoke-Command -ComputerName $name -ScriptBlock $ScriptBlock 2>"$workingdir\logs\temp.log" | Set-Content $workingdir\$name.csv 
@@ -196,8 +165,21 @@ foreach ($file in $list){
 	}
 }
 
-## Exporta el listado de certificados a CSV para que se pueda leer externamente
-$certlist | export-csv -path $workingdir\FINAL-LIST.csv -notypeinformation
+## Setea la cantidad de dias de aviso del mail
+$dias=60
+
+## Exporta el listado de certificados a CSV para que se pueda adjuntar
+$certlist | export-csv -path $workingdir\FullList.csv -notypeinformation
+$totalcerts=$certlist.count
+
+## Exporta el listado de certificados  a menos de 60 dias de vencer a CSV para que se pueda adjuntar
+$certlist | where {[int]$_.daystoexpiry -le $dias -and [int]$_.daystoexpiry -ge -10} | export-csv -path $workingdir\NearExpiry.csv -notypeinformation
+$totalporexpirar=($certlist | where {[int]$_.daystoexpiry -le $dias -and [int]$_.daystoexpiry -ge -10}).count
+
+## Trae la cantidad de errores ############ DEBUGGING
+$errorlog=(import-csv $workingdir\logs\reportecerts-$fecha.log -Delimiter ";")
+$offline=($errorlog | where {$_.error -eq "offline"}).count
+$fatal=($errorlog | where {$_.error -eq "fatal"}).count
 
 ## Tiempo que tardo en hacer todos
 $tiempototal=($fechafinal-$fechainicial).ToString().split(".")[0]
@@ -230,18 +212,19 @@ $Header = $Header + "</style>"
 ### BODY ###
 ############
 
-$body=$certlist | where {[int]$_.daystoexpiry -le 60 -and [int]$_.daystoexpiry -ge -10} | select servername, subject, NotAfter, daystoexpiry | ConvertTo-Html -Head $Header | out-string
+$body=$certlist | where {[int]$_.daystoexpiry -le $dias -and [int]$_.daystoexpiry -ge -10} | select servername, subject, NotAfter, daystoexpiry | ConvertTo-Html -Head $Header | out-string
 
-$toAddress="lucas.camilo@ar.ey.com", "pablo.gessaga@ar.ey.com"
+$toAddress="lucas.camilo@ar.ey.com"
 $fromAddress="CertScript-TESTING@ey.com"
-$subject="TODOS los certs"
+$subject="Certificate Report - $fecha"
 $smtp="smtp.discovery.local"
-$body+= "<br><br>Adjuntos: Lista final de certificados (FINAL-LIST.csv) y lista de errores (reportecerts-$fecha.log). <br>Tardo $tiempototal hs en correr"
-$Attachments="$workingdir\FINAL-LIST.csv", "$workingdir\logs\reportecerts-$fecha.log"
-
-
-
+$body+= "<br><br>
+Se encontraron $totalcerts certificados, de los cuales $totalporexpirar expiran en los proximos $dias dias. Se encontraron $fatal errores y $offline equipos inalcanzables. <br>
+Tardo $tiempototal hs en correr<br>
+Adjuntos: Lista completa (FullList.csv), lista de proximos a expirar (NearExpiry.csv) y lista de errores (reportecerts-$fecha.log). <br> "
+$Attachments="$workingdir\FullList.csv","$workingdir\NearExpiry.csv", "$workingdir\logs\reportecerts-$fecha.log"
 
 
 # Send out the email message!
 Send-MailMessage -to $toAddress  -from $fromAddress -subject $subject -smtpserver $smtp -body $body -Attachments $Attachments -BodyAsHtml 
+
